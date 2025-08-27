@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dhevv8/chirpy/internal/auth"
 	"github.com/dhevv8/chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -21,12 +22,20 @@ type Chirp struct{
 func (cfg *apiConfig) handleChirps(w http.ResponseWriter,r *http.Request){
 	type parameters struct{
 		Body string `json:"body"`
-		User_id uuid.UUID `json:"user_id"`
 	}
-
+	token,err:=auth.GetBearerToken(r.Header)
+	if err!=nil{
+		respondWithError(w,http.StatusUnauthorized,"Missing or invalid Authorization header",err)
+		return
+	}
+	userID,err:=auth.ValidateJWT(token,cfg.jwtSecret)
+	if err!=nil{
+		respondWithError(w,http.StatusUnauthorized,"Invalid token",err)
+		return
+	}
 	decoder:= json.NewDecoder(r.Body)
 	params:=parameters{}
-	err:=decoder.Decode(&params)
+	err=decoder.Decode(&params)
 	if err!=nil{
 		respondWithError(w,http.StatusInternalServerError,"Could not decode request body",err)
 		return
@@ -38,7 +47,7 @@ func (cfg *apiConfig) handleChirps(w http.ResponseWriter,r *http.Request){
 	}
 	chirp,err:=cfg.db.CreateChirp(r.Context(),database.CreateChirpParams{
 		Body: cleaned,
-		UserID: params.User_id,
+		UserID: userID,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create chirp", err)

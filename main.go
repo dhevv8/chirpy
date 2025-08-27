@@ -16,6 +16,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	db 		  *database.Queries
 	platform string
+	jwtSecret string
 }
 
 func main(){
@@ -32,6 +33,10 @@ func main(){
 	if err!=nil{
 		log.Fatalf("Error connecting to database: %s", err)
 	}
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is not set")
+	}
 	dbQueries:=database.New(dbConn)
 	mux:=http.NewServeMux();
 	apiCfg:=apiConfig{
@@ -47,6 +52,7 @@ func main(){
 	mux.HandleFunc("POST /api/chirps", apiCfg.handleChirps)
 	mux.HandleFunc("GET /api/chirps", apiCfg.handlerChirpsRetrieve)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerChirpByID)
+	mux.HandleFunc("POST /api/login", apiCfg.handlerLogin)
 	server:=&http.Server{
 		Addr: ":8080",
 		Handler: mux,
